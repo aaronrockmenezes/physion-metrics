@@ -1,0 +1,15 @@
+.DS_Store
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+dist/
+build/
+*.json
+!requirements.txt
+videos/
+/tmp/
+*.mp4
+*.avi
+*.mov
