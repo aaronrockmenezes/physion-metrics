@@ -26,6 +26,7 @@ from metrics_wrapper import (
     MotionSmoothnessMetric,
     StyleConsistencyMetric,
 )
+from score_utils import compute_worldscore
 
 
 def get_device():
@@ -127,9 +128,15 @@ def process_video(video_path, frame_skip=1, max_frames=None):
     metrics = compute_all_metrics(frames)
     results.update(metrics)
 
+    # Compute normalized WorldScore
+    ws = compute_worldscore(results)
+    results.update(ws)
+
     elapsed = time.time() - start_time
     results["processing_time_seconds"] = elapsed
     print(f"  Completed in {elapsed:.2f}s")
+    if "worldscore" in ws:
+        print(f"  WorldScore: {ws['worldscore']:.4f}  (static={ws.get('worldscore_static', 'N/A'):.4f}, dynamic={ws.get('worldscore_dynamic', 'N/A'):.4f})")
 
     return results
 
@@ -235,6 +242,23 @@ def main():
             print(f"Motion Smoothness (SSIM):       mean={np.mean(ssim):.4f}, std={np.std(ssim):.4f}")
         if lpips:
             print(f"Motion Smoothness (LPIPS):      mean={np.mean(lpips):.4f}, std={np.std(lpips):.4f}")
+
+        # WorldScore
+        ws_static  = [r["worldscore_static"]  for r in results if r.get("worldscore_static")]
+        ws_dynamic = [r["worldscore_dynamic"] for r in results if r.get("worldscore_dynamic")]
+        ws_all     = [r["worldscore"]         for r in results if r.get("worldscore")]
+
+        if ws_static or ws_dynamic or ws_all:
+            print()
+            print("=" * 80)
+            print("WORLDSCORE (normalized 0-1)")
+            print("=" * 80)
+        if ws_static:
+            print(f"WorldScore-Static:              mean={np.mean(ws_static):.4f}, std={np.std(ws_static):.4f}")
+        if ws_dynamic:
+            print(f"WorldScore-Dynamic:             mean={np.mean(ws_dynamic):.4f}, std={np.std(ws_dynamic):.4f}")
+        if ws_all:
+            print(f"WorldScore:                     mean={np.mean(ws_all):.4f}, std={np.std(ws_all):.4f}")
 
 
 if __name__ == "__main__":
