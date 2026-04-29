@@ -171,6 +171,8 @@ def main():
     parser.add_argument("--frame-skip", type=int, default=1,      help="Frame skip factor (default: 1 = all frames)")
     parser.add_argument("--max-frames", type=int, default=None,   help="Max frames per video")
     parser.add_argument("--max-videos", type=int, default=None,   help="Max videos to process")
+    parser.add_argument("--shard",      type=int, default=0,      help="Shard index (0-based, for job arrays)")
+    parser.add_argument("--num-shards", type=int, default=1,      help="Total number of shards")
 
     args = parser.parse_args()
 
@@ -187,7 +189,22 @@ def main():
     if args.max_videos:
         entries = entries[:args.max_videos]
 
-    output_path = Path(args.output) if args.output else Path(f"{args.model.replace(' ', '_')}_metrics.json")
+    # Shard: slice entries for this job array task
+    if args.num_shards > 1:
+        total = len(entries)
+        shard_size = (total + args.num_shards - 1) // args.num_shards
+        start_idx = args.shard * shard_size
+        end_idx = min(start_idx + shard_size, total)
+        entries = entries[start_idx:end_idx]
+        print(f"Shard {args.shard}/{args.num_shards}: entries {start_idx}-{end_idx-1} ({len(entries)} videos)")
+
+    # Auto-suffix output with shard index when sharding
+    base_output = args.output or f"{args.model.replace(' ', '_')}_metrics"
+    if args.num_shards > 1:
+        stem = Path(base_output).stem if args.output else base_output
+        output_path = Path(f"{stem}_shard{args.shard:04d}.json")
+    else:
+        output_path = Path(base_output) if args.output else Path(f"{base_output}.json")
     video_dir = Path(args.video_dir)
 
     device = get_device()
