@@ -1,27 +1,26 @@
 """
 Wrapper classes for WorldScore metrics adapted for video-only evaluation.
+Paper: WorldScore - A Unified Evaluation Benchmark for World Generation (2504.00983)
 """
 
 import sys
 from pathlib import Path
-from typing import List, Union, Tuple
+from typing import List, Tuple
 import torch
 import numpy as np
 from PIL import Image
-import cv2
-import torch.nn.functional as F
 
 # Add local WorldScore to path (used if not pip-installed)
 WORLDSCORE_PATH = Path(__file__).parent.parent / "WorldScore"
 sys.path.insert(0, str(WORLDSCORE_PATH))
 
-# Inject third_party paths before worldscore imports.
-# Handles both: (a) local WorldScore repo, (b) pip-installed worldscore package.
+
 def _inject_third_party_paths():
+    """Inject third_party subdirs into sys.path before worldscore imports.
+    Handles both pip-installed and local repo."""
     import importlib.util
     subdirs = ["droid_slam", "groundingdino", "sam2", "VFIMamba", "SEA-RAFT"]
 
-    # Try pip-installed worldscore location first
     spec = importlib.util.find_spec("worldscore")
     if spec and spec.origin:
         ws_pkg = Path(spec.origin).parent
@@ -40,142 +39,108 @@ def _inject_third_party_paths():
         if p not in sys.path:
             sys.path.insert(0, p)
 
+
 _inject_third_party_paths()
 
-# Import only what we need, avoid lietorch dependencies
-from worldscore.benchmark.metrics.base_metrics import IQAPytorchMetric, BaseMetric
-from worldscore.common.gpu_utils import get_torch_device
 from video_utils import frames_to_file_paths
 
-# Lazy imports to avoid loading metrics/__init__.py which imports lietorch
-def _import_optical_flow_metric():
-    from worldscore.benchmark.metrics.third_party.flow_metrics import (
-        OpticalFlowMetric as WSOpticalFlowMetric,
-    )
-    return WSOpticalFlowMetric
 
-def _import_optical_flow_aepe_metric():
-    from worldscore.benchmark.metrics.third_party.flow_aepe_metrics import (
-        OpticalFlowAverageEndPointErrorMetric as WSOpticalFlowAEPEMetric,
-    )
-    return WSOpticalFlowAEPEMetric
-
-def _import_motion_smoothness_metric():
-    from worldscore.benchmark.metrics.third_party.motion_smoothness_metrics import (
-        MotionSmoothnessMetric as WSMotionSmoothnessMetric,
-    )
-    return WSMotionSmoothnessMetric
+def _pil_to_tensor(frame: Image.Image, device: torch.device, size: int = 512) -> torch.Tensor:
+    """PIL Image → (1, 3, H, W) float tensor on device, resized to size x size."""
+    arr = np.array(frame.convert("RGB")).astype(np.float32) / 255.0
+    t = torch.from_numpy(arr).permute(2, 0, 1).unsqueeze(0).to(device)
+    t = torch.nn.functional.interpolate(t, size=(size, size), mode="bilinear", align_corners=False)
+    return t
 
 
-class CLIPIQAPlusMetric(IQAPytorchMetric):
-    """CLIP-IQA+ wrapper for video frames."""
+class CLIPIQAPlusMetric:
+    """Subjective Quality (Image) - CLIP-IQA+."""
 
     def __init__(self):
-        super().__init__(metric_name="clipiqa+")
+        import pyiqa
+        self.device = torch.device("cuda" if torch.cuda.is_available() else
+                                   "mps" if torch.backends.mps.is_available() else "cpu")
+        self.metric = pyiqa.create_metric("clipiqa+").to(self.device)
 
     def compute(self, frames: List[Image.Image]) -> float:
-        """Compute CLIP-IQA+ score for frames."""
-        imgs = self._process_image(frames)
         scores = []
-        for img in imgs:
-            score = self._metric(img.unsqueeze(0)).item()
-            scores.append(score)
-        return np.mean(scores)
+        with torch.no_grad():
+            for frame in frames:
+                t = _pil_to_tensor(frame, self.device)
+                scores.append(self.metric(t).item())
+        return float(np.mean(scores)) if scores else None
 
 
-class CLIPAestheticMetric(IQAPytorchMetric):
-    """CLIP Aesthetic wrapper for video frames."""
+class CLIPAestheticMetric:
+    """Subjective Quality (Aesthetic) - CLIP Aesthetic."""
 
     def __init__(self):
-        super().__init__(metric_name="laion_aes")
+        import pyiqa
+        self.device = torch.device("cuda" if torch.cuda.is_available() else
+                                   "mps" if torch.backends.mps.is_available() else "cpu")
+        self.metric = pyiqa.create_metric("laion_aes").to(self.device)
 
     def compute(self, frames: List[Image.Image]) -> float:
-        """Compute CLIP Aesthetic score for frames."""
-        imgs = self._process_image(frames)
         scores = []
-        for img in imgs:
-            score = self._metric(img.unsqueeze(0)).item()
-            scores.append(score)
-        return np.mean(scores)
+        with torch.no_grad():
+            for frame in frames:
+                t = _pil_to_tensor(frame, self.device)
+                scores.append(self.metric(t).item())
+        return float(np.mean(scores)) if scores else None
 
 
-class OpticalFlowMetric(BaseMetric):
-    """Optical flow magnitude (motion magnitude) wrapper."""
+class OpticalFlowMetric:
+    """Motion Magnitude - Optical Flow."""
 
     def __init__(self):
-        super().__init__()
-        WSOpticalFlowMetric = _import_optical_flow_metric()
-        self.ws_metric = WSOpticalFlowMetric()
+        from worldscore.benchmark.metrics.third_party.flow_metrics import OpticalFlowMetric as _WS
+        self._metric = _WS()
 
     def compute(self, frames: List[Image.Image]) -> float:
-        """Compute optical flow magnitude."""
         frame_paths = frames_to_file_paths(frames, temp_dir="/tmp/physion_optical_flow")
-        score = self.ws_metric._compute_scores(frame_paths)
-        return score
+        return float(self._metric._compute_scores(frame_paths))
 
 
-class OpticalFlowAEPEMetric(BaseMetric):
-    """Optical flow AEPE (Average End-Point Error) wrapper."""
+class OpticalFlowAEPEMetric:
+    """Photometric Consistency - Optical Flow AEPE."""
 
     def __init__(self):
-        super().__init__()
-        # Import here to avoid early loading
         from worldscore.benchmark.metrics.third_party.flow_aepe_metrics import (
-            OpticalFlowAverageEndPointErrorMetric as WSOpticalFlowAEPEMetric,
+            OpticalFlowAverageEndPointErrorMetric as _WS,
         )
-
-        self.ws_metric = WSOpticalFlowAEPEMetric()
+        self._metric = _WS()
 
     def compute(self, frames: List[Image.Image]) -> float:
-        """Compute optical flow AEPE."""
         frame_paths = frames_to_file_paths(frames, temp_dir="/tmp/physion_optical_flow_aepe")
-        score = self.ws_metric._compute_scores(frame_paths)
-        return score
+        return float(self._metric._compute_scores(frame_paths))
 
 
-class MotionSmoothnessMetric(BaseMetric):
-    """Motion smoothness (frame interpolation quality) wrapper."""
-
-    def __init__(self):
-        super().__init__()
-        # Import here to avoid early loading
-        from worldscore.benchmark.metrics.third_party.motion_smoothness_metrics import (
-            MotionSmoothnessMetric as WSMotionSmoothnessMetric,
-        )
-
-        self.ws_metric = WSMotionSmoothnessMetric()
-
-    def compute(self, frames: List[Image.Image]) -> Tuple[float, float, float]:
-        """
-        Compute motion smoothness metrics.
-
-        Returns:
-            Tuple of (MSE, SSIM, LPIPS)
-        """
-        frame_paths = frames_to_file_paths(frames, temp_dir="/tmp/physion_motion_smoothness")
-        # Motion smoothness expects even/odd frame pairing
-        # It will subsample automatically
-        scores = self.ws_metric._compute_scores(frame_paths)
-        # Returns (mse, ssim, lpips)
-        return scores
-
-
-class StyleConsistencyMetric(BaseMetric):
-    """Style consistency (Gram matrix) wrapper for video frames."""
+class StyleConsistencyMetric:
+    """Style Consistency - Gram Matrix (VGG19)."""
 
     def __init__(self):
-        super().__init__()
         from worldscore.benchmark.metrics.third_party.gram_matrix_metrics import (
-            GramMatrixMetric as WSGramMatrixMetric,
+            GramMatrixMetric as _WS,
         )
-        self.ws_metric = WSGramMatrixMetric()
+        self._metric = _WS()
 
     def compute(self, frames: List[Image.Image]) -> float:
-        """Compute style consistency between first and last frame."""
         if len(frames) < 2:
             return 0.0
-
         frame_paths = frames_to_file_paths(frames, temp_dir="/tmp/physion_style_consistency")
-        # Compare first frame (style reference) against all frames
-        score = self.ws_metric._compute_scores(frame_paths[0], frame_paths[1:])
-        return float(score)
+        return float(self._metric._compute_scores(frame_paths[0], frame_paths[1:]))
+
+
+class MotionSmoothnessMetric:
+    """Motion Smoothness - VFIMamba (MSE, SSIM, LPIPS)."""
+
+    def __init__(self):
+        from worldscore.benchmark.metrics.third_party.motion_smoothness_metrics import (
+            MotionSmoothnessMetric as _WS,
+        )
+        self._metric = _WS()
+
+    def compute(self, frames: List[Image.Image]) -> Tuple[float, float, float]:
+        frame_paths = frames_to_file_paths(frames, temp_dir="/tmp/physion_motion_smoothness")
+        mse, ssim, lpips = self._metric._compute_scores(frame_paths)
+        return float(mse), float(ssim), float(lpips)
