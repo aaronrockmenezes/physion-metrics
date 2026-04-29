@@ -9,7 +9,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=40G
 #SBATCH --gres=gpu:1
-#SBATCH --time=24:00:00
+#SBATCH --time=06:00:00
 #SBATCH --partition=gpu
 #SBATCH --account=carney-tserre-condo
 #SBATCH --constraint="l40s|a6000"

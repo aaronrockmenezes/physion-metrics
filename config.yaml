@@ -10,7 +10,7 @@ paths:
 slurm:
   cpus_per_task: 8
   mem:           40G
-  time:          24:00:00
+  time:          06:00:00
   partition:     gpu
   account:       carney-tserre-condo
   constraint:    "l40s|a6000"
