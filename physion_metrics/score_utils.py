@@ -103,35 +103,35 @@ def compute_worldscore(result: dict) -> dict:
     """
     scores = {}
 
-    # --- Static aspects ---
+    # --- Static aspects (normalized 0-1, then * 100 per paper run_evaluate.py:55) ---
 
-    # Subjective Quality: mean of CLIP-IQA+ and CLIP Aesthetic
+    # Subjective Quality: mean of CLIP-IQA+ and CLIP Aesthetic, scaled to 0-100
     sq_scores = []
     if result.get("subjective_quality_image") is not None:
         sq_scores.append(normalize_metric("clip_iqa+", result["subjective_quality_image"]))
     if result.get("subjective_quality_aesthetic") is not None:
         sq_scores.append(normalize_metric("clip_aesthetic", result["subjective_quality_aesthetic"]))
     if sq_scores:
-        scores["subjective_quality"] = sum(sq_scores) / len(sq_scores)
+        scores["subjective_quality"] = round((sum(sq_scores) / len(sq_scores)) * 100, 2)
 
     # Photometric Consistency
     if result.get("photometric_consistency") is not None:
-        scores["photometric_consistency"] = normalize_metric(
-            "optical_flow_aepe", result["photometric_consistency"]
+        scores["photometric_consistency"] = round(
+            normalize_metric("optical_flow_aepe", result["photometric_consistency"]) * 100, 2
         )
 
     # Style Consistency
     if result.get("style_consistency") is not None:
-        scores["style_consistency"] = normalize_metric(
-            "gram_matrix", result["style_consistency"]
+        scores["style_consistency"] = round(
+            normalize_metric("gram_matrix", result["style_consistency"]) * 100, 2
         )
 
     # --- Dynamic aspects ---
 
     # Motion Magnitude
     if result.get("motion_magnitude") is not None:
-        scores["motion_magnitude"] = normalize_metric(
-            "optical_flow", result["motion_magnitude"]
+        scores["motion_magnitude"] = round(
+            normalize_metric("optical_flow", result["motion_magnitude"]) * 100, 2
         )
 
     # Motion Smoothness: (MSE, SSIM, LPIPS) tuple
@@ -139,24 +139,25 @@ def compute_worldscore(result: dict) -> dict:
     ssim  = result.get("motion_smoothness_ssim")
     lpips = result.get("motion_smoothness_lpips")
     if all(v is not None for v in [mse, ssim, lpips]):
-        scores["motion_smoothness"] = normalize_metric(
-            "motion_smoothness", (mse, ssim, lpips)
+        scores["motion_smoothness"] = round(
+            normalize_metric("motion_smoothness", (mse, ssim, lpips)) * 100, 2
         )
 
-    # --- Aggregate ---
+    # --- Aggregate (aspect scores already 0-100, WorldScore = mean of aspects) ---
     static_keys  = ["subjective_quality", "photometric_consistency", "style_consistency"]
     dynamic_keys = ["motion_magnitude", "motion_smoothness"]
 
     static_vals  = [scores[k] for k in static_keys  if k in scores]
     dynamic_vals = [scores[k] for k in dynamic_keys if k in scores]
 
+    # WorldScore-Static: mean of static aspects
     if static_vals:
-        scores["worldscore_static"] = sum(static_vals) / len(static_vals)
-    if dynamic_vals:
-        scores["worldscore_dynamic"] = sum(dynamic_vals) / len(dynamic_vals)
+        scores["worldscore_static"] = round(sum(static_vals) / len(static_vals), 2)
 
+    # WorldScore-Dynamic: mean of ALL aspects (static + dynamic), per run_evaluate.py:166
     all_vals = static_vals + dynamic_vals
     if all_vals:
-        scores["worldscore"] = sum(all_vals) / len(all_vals)
+        scores["worldscore_dynamic"] = round(sum(all_vals) / len(all_vals), 2)
+        scores["worldscore"] = scores["worldscore_dynamic"]
 
     return scores
