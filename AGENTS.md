@@ -22,11 +22,14 @@ physion-metrics/
 
 ## Sibling Dependency
 
-WorldScore repo MUST be at `../WorldScore` relative to this repo:
-```
-physion_stuff/
-├── WorldScore/       ← pip-installed OR local repo
-└── physion-metrics/  ← this repo
+WorldScore repo MUST be locatable. Priority order in `_get_worldscore_root()`:
+1. `WORLDSCORE_ROOT` env var (explicit override, preferred on HPC)
+2. `../WorldScore` sibling dir (local dev)
+3. pip site-packages (last resort — **no checkpoints, will fail for flow/smoothness metrics**)
+
+**HPC:** physion-metrics and WorldScore may be on different paths (e.g. `/oscar/data/...` vs `/users/arock3/scratch/...`). Always set env var:
+```bash
+export WORLDSCORE_ROOT=/users/arock3/scratch/physion_worldscore/WorldScore
 ```
 
 WorldScore is also pip-installed in the `worldscore` conda env.

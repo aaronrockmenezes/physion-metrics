@@ -48,12 +48,28 @@ import contextlib
 
 
 def _get_worldscore_root() -> Path:
-    """Return the parent dir of the worldscore package (CWD expected by WorldScore metrics)."""
+    """Return the dir that contains worldscore/ as a subdir (CWD needed by SEA-RAFT/VFIMamba).
+    Priority: WORLDSCORE_ROOT env var > local sibling repo > pip site-packages (no checkpoints).
+    """
+    # 1. Explicit override via env var
+    env = os.environ.get("WORLDSCORE_ROOT")
+    if env:
+        return Path(env)
+
+    # 2. Local sibling repo (has checkpoints)
+    if (WORLDSCORE_PATH / "worldscore").exists():
+        return WORLDSCORE_PATH
+
+    # 3. Pip-installed (last resort — won't have checkpoints/configs)
     import importlib.util
     spec = importlib.util.find_spec("worldscore")
     if spec and spec.origin:
         return Path(spec.origin).parent.parent  # site-packages/
-    return WORLDSCORE_PATH  # local repo: WorldScore/ contains worldscore/
+
+    raise RuntimeError(
+        "Cannot find WorldScore root. Set WORLDSCORE_ROOT env var to the directory "
+        "containing the worldscore/ package (e.g. /path/to/WorldScore/)."
+    )
 
 
 @contextlib.contextmanager
