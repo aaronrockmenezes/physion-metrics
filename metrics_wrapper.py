@@ -43,6 +43,28 @@ def _inject_third_party_paths():
 _inject_third_party_paths()
 
 from video_utils import frames_to_file_paths
+import os
+import contextlib
+
+
+def _get_worldscore_root() -> Path:
+    """Return the parent dir of the worldscore package (CWD expected by WorldScore metrics)."""
+    import importlib.util
+    spec = importlib.util.find_spec("worldscore")
+    if spec and spec.origin:
+        return Path(spec.origin).parent.parent  # site-packages/
+    return WORLDSCORE_PATH  # local repo: WorldScore/ contains worldscore/
+
+
+@contextlib.contextmanager
+def _worldscore_cwd():
+    """Temporarily chdir to worldscore root so relative paths resolve correctly."""
+    original = os.getcwd()
+    try:
+        os.chdir(_get_worldscore_root())
+        yield
+    finally:
+        os.chdir(original)
 
 
 def _pil_to_tensor(frame: Image.Image, device: torch.device, size: int = 512) -> torch.Tensor:
@@ -90,29 +112,33 @@ class CLIPAestheticMetric:
 
 
 class OpticalFlowMetric:
-    """Motion Magnitude - Optical Flow."""
+    """Motion Magnitude - Optical Flow (SEA-RAFT)."""
 
     def __init__(self):
-        from worldscore.benchmark.metrics.third_party.flow_metrics import OpticalFlowMetric as _WS
-        self._metric = _WS()
+        with _worldscore_cwd():
+            from worldscore.benchmark.metrics.third_party.flow_metrics import OpticalFlowMetric as _WS
+            self._metric = _WS()
 
     def compute(self, frames: List[Image.Image]) -> float:
         frame_paths = frames_to_file_paths(frames, temp_dir="/tmp/physion_optical_flow")
-        return float(self._metric._compute_scores(frame_paths))
+        with _worldscore_cwd():
+            return float(self._metric._compute_scores(frame_paths))
 
 
 class OpticalFlowAEPEMetric:
-    """Photometric Consistency - Optical Flow AEPE."""
+    """Photometric Consistency - Optical Flow AEPE (SEA-RAFT)."""
 
     def __init__(self):
-        from worldscore.benchmark.metrics.third_party.flow_aepe_metrics import (
-            OpticalFlowAverageEndPointErrorMetric as _WS,
-        )
-        self._metric = _WS()
+        with _worldscore_cwd():
+            from worldscore.benchmark.metrics.third_party.flow_aepe_metrics import (
+                OpticalFlowAverageEndPointErrorMetric as _WS,
+            )
+            self._metric = _WS()
 
     def compute(self, frames: List[Image.Image]) -> float:
         frame_paths = frames_to_file_paths(frames, temp_dir="/tmp/physion_optical_flow_aepe")
-        return float(self._metric._compute_scores(frame_paths))
+        with _worldscore_cwd():
+            return float(self._metric._compute_scores(frame_paths))
 
 
 class StyleConsistencyMetric:
@@ -135,12 +161,14 @@ class MotionSmoothnessMetric:
     """Motion Smoothness - VFIMamba (MSE, SSIM, LPIPS)."""
 
     def __init__(self):
-        from worldscore.benchmark.metrics.third_party.motion_smoothness_metrics import (
-            MotionSmoothnessMetric as _WS,
-        )
-        self._metric = _WS()
+        with _worldscore_cwd():
+            from worldscore.benchmark.metrics.third_party.motion_smoothness_metrics import (
+                MotionSmoothnessMetric as _WS,
+            )
+            self._metric = _WS()
 
     def compute(self, frames: List[Image.Image]) -> Tuple[float, float, float]:
         frame_paths = frames_to_file_paths(frames, temp_dir="/tmp/physion_motion_smoothness")
-        mse, ssim, lpips = self._metric._compute_scores(frame_paths)
+        with _worldscore_cwd():
+            mse, ssim, lpips = self._metric._compute_scores(frame_paths)
         return float(mse), float(ssim), float(lpips)
