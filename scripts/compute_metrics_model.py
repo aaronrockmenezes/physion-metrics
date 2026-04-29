@@ -223,21 +223,21 @@ def main():
     start_total = time.time()
     not_found = 0
 
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
     for entry in tqdm(entries, desc=f"{args.model}"):
         result = process_entry(entry, video_dir, args.frame_skip, args.max_frames)
         if result:
             results.append(result)
+            # Incremental save — crash-safe: write after each video
+            with open(output_path, "w") as f:
+                json.dump(results, f, indent=2)
         else:
             not_found += 1
 
-    # Save
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "w") as f:
-        json.dump(results, f, indent=2)
-
     total_time = time.time() - start_total
 
-    print(f"\n\nResults saved to {output_path}")
+    print(f"\n\nFinal results saved to {output_path}")
     print(f"Processed: {len(results)} | Skipped (not found): {not_found}")
     print(f"Total time: {total_time:.2f}s | Avg per video: {total_time / max(len(results), 1):.2f}s")
 
