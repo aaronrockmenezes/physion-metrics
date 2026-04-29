@@ -6,13 +6,16 @@ Paper: WorldScore - A Unified Evaluation Benchmark for World Generation (2504.00
 
 import sys
 from pathlib import Path
+
+# Repo root → finds physion_metrics package
+sys.path.insert(0, str(Path(__file__).parent.parent))
 import json
 import torch
 import pyiqa
 from PIL import Image
 import numpy as np
 from tqdm import tqdm
-from video_utils import extract_frames_from_video
+from physion_metrics.video_utils import extract_frames_from_video
 
 
 def get_device():

@@ -2,8 +2,11 @@
 """Example usage of individual metric classes."""
 
 from pathlib import Path
-from video_utils import extract_frames_from_video
-from metrics_wrapper import (
+
+# Repo root → finds physion_metrics package
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from physion_metrics.video_utils import extract_frames_from_video
+from physion_metrics.metrics_wrapper import (
     CLIPIQAPlusMetric,
     CLIPAestheticMetric,
     OpticalFlowMetric,

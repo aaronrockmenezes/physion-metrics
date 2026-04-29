@@ -6,6 +6,9 @@ Paper: WorldScore - A Unified Evaluation Benchmark for World Generation (2504.00
 
 import sys
 from pathlib import Path
+# Repo root → finds physion_metrics package
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 import json
 import torch
 import numpy as np
@@ -13,32 +16,8 @@ from tqdm import tqdm
 import time
 
 # Add local WorldScore to path (used if not pip-installed)
-WORLDSCORE_PATH = Path(__file__).parent.parent / "WorldScore"
-sys.path.insert(0, str(WORLDSCORE_PATH))
 
-# Inject third_party paths — works for pip-installed and local repo
-def _inject_third_party_paths():
-    import importlib.util
-    subdirs = ["droid_slam", "groundingdino", "sam2", "VFIMamba", "SEA-RAFT"]
-    spec = importlib.util.find_spec("worldscore")
-    if spec and spec.origin:
-        ws_pkg = Path(spec.origin).parent
-        third_party = ws_pkg / "benchmark" / "metrics" / "third_party"
-        if third_party.exists():
-            for sub in subdirs:
-                p = str(third_party / sub)
-                if p not in sys.path:
-                    sys.path.insert(0, p)
-            return
-    third_party = WORLDSCORE_PATH / "worldscore" / "benchmark" / "metrics" / "third_party"
-    for sub in subdirs:
-        p = str(third_party / sub)
-        if p not in sys.path:
-            sys.path.insert(0, p)
-
-_inject_third_party_paths()
-
-from video_utils import extract_frames_from_video
+from physion_metrics.video_utils import extract_frames_from_video
 
 
 def get_device():
@@ -56,7 +35,7 @@ def compute_all_metrics(frames):
 
     # 1. Subjective Quality (Image) - CLIP-IQA+
     try:
-        from metrics_wrapper import CLIPIQAPlusMetric
+        from physion_metrics.metrics_wrapper import CLIPIQAPlusMetric
         metric = CLIPIQAPlusMetric()
         score = metric.compute(frames)
         results["subjective_quality_image"] = float(score) if score else None
@@ -66,7 +45,7 @@ def compute_all_metrics(frames):
 
     # 2. Subjective Quality (Aesthetic) - CLIP Aesthetic
     try:
-        from metrics_wrapper import CLIPAestheticMetric
+        from physion_metrics.metrics_wrapper import CLIPAestheticMetric
         metric = CLIPAestheticMetric()
         score = metric.compute(frames)
         results["subjective_quality_aesthetic"] = float(score) if score else None
@@ -76,7 +55,7 @@ def compute_all_metrics(frames):
 
     # 3. Motion Magnitude - Optical Flow
     try:
-        from metrics_wrapper import OpticalFlowMetric
+        from physion_metrics.metrics_wrapper import OpticalFlowMetric
         metric = OpticalFlowMetric()
         score = metric.compute(frames)
         results["motion_magnitude"] = float(score) if score else None
@@ -86,7 +65,7 @@ def compute_all_metrics(frames):
 
     # 4. Photometric Consistency - Optical Flow AEPE
     try:
-        from metrics_wrapper import OpticalFlowAEPEMetric
+        from physion_metrics.metrics_wrapper import OpticalFlowAEPEMetric
         metric = OpticalFlowAEPEMetric()
         score = metric.compute(frames)
         results["photometric_consistency"] = float(score) if score else None
@@ -96,7 +75,7 @@ def compute_all_metrics(frames):
 
     # 5. Style Consistency - Gram Matrix
     try:
-        from metrics_wrapper import StyleConsistencyMetric
+        from physion_metrics.metrics_wrapper import StyleConsistencyMetric
         metric = StyleConsistencyMetric()
         score = metric.compute(frames)
         results["style_consistency"] = float(score) if score else None
@@ -106,7 +85,7 @@ def compute_all_metrics(frames):
 
     # 6. Motion Smoothness - VFIMamba (MSE/SSIM/LPIPS)
     try:
-        from metrics_wrapper import MotionSmoothnessMetric
+        from physion_metrics.metrics_wrapper import MotionSmoothnessMetric
         metric = MotionSmoothnessMetric()
         mse, ssim, lpips = metric.compute(frames)
         results["motion_smoothness_mse"] = float(mse) if mse else None

@@ -11,7 +11,8 @@ import numpy as np
 from PIL import Image
 
 # Add local WorldScore to path (used if not pip-installed)
-WORLDSCORE_PATH = Path(__file__).parent.parent / "WorldScore"
+# __file__ is physion_metrics/physion_metrics/metrics_wrapper.py → go up 3 levels
+WORLDSCORE_PATH = Path(__file__).parent.parent.parent / "WorldScore"
 sys.path.insert(0, str(WORLDSCORE_PATH))
 
 
@@ -42,7 +43,7 @@ def _inject_third_party_paths():
 
 _inject_third_party_paths()
 
-from video_utils import frames_to_file_paths
+from physion_metrics.video_utils import frames_to_file_paths
 import os
 import contextlib
 

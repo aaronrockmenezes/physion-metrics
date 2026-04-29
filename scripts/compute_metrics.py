@@ -7,17 +7,18 @@ Paper: WorldScore - A Unified Evaluation Benchmark for World Generation (2504.00
 
 import sys
 from pathlib import Path
+# Repo root → finds physion_metrics package
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 import json
 import torch
 import numpy as np
 from tqdm import tqdm
 
 # Add WorldScore to path
-WORLDSCORE_PATH = Path(__file__).parent.parent / "WorldScore"
-sys.path.insert(0, str(WORLDSCORE_PATH))
 
-from video_utils import extract_frames_from_video
-from metrics_wrapper import (
+from physion_metrics.video_utils import extract_frames_from_video
+from physion_metrics.metrics_wrapper import (
     CLIPIQAPlusMetric,
     CLIPAestheticMetric,
     OpticalFlowMetric,
