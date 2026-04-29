@@ -12,16 +12,31 @@ import numpy as np
 from tqdm import tqdm
 import time
 
-# Add WorldScore to path
+# Add local WorldScore to path (used if not pip-installed)
 WORLDSCORE_PATH = Path(__file__).parent.parent / "WorldScore"
 sys.path.insert(0, str(WORLDSCORE_PATH))
 
-# third_party/__init__.py uses CWD-relative paths — fix with absolute paths
-_THIRD_PARTY = WORLDSCORE_PATH / "worldscore" / "benchmark" / "metrics" / "third_party"
-for _subdir in ["droid_slam", "groundingdino", "sam2", "VFIMamba", "SEA-RAFT"]:
-    _p = str(_THIRD_PARTY / _subdir)
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
+# Inject third_party paths — works for pip-installed and local repo
+def _inject_third_party_paths():
+    import importlib.util
+    subdirs = ["droid_slam", "groundingdino", "sam2", "VFIMamba", "SEA-RAFT"]
+    spec = importlib.util.find_spec("worldscore")
+    if spec and spec.origin:
+        ws_pkg = Path(spec.origin).parent
+        third_party = ws_pkg / "benchmark" / "metrics" / "third_party"
+        if third_party.exists():
+            for sub in subdirs:
+                p = str(third_party / sub)
+                if p not in sys.path:
+                    sys.path.insert(0, p)
+            return
+    third_party = WORLDSCORE_PATH / "worldscore" / "benchmark" / "metrics" / "third_party"
+    for sub in subdirs:
+        p = str(third_party / sub)
+        if p not in sys.path:
+            sys.path.insert(0, p)
+
+_inject_third_party_paths()
 
 from video_utils import extract_frames_from_video
 

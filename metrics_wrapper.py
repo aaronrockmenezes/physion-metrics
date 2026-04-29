@@ -11,17 +11,36 @@ from PIL import Image
 import cv2
 import torch.nn.functional as F
 
-# Add WorldScore to path
+# Add local WorldScore to path (used if not pip-installed)
 WORLDSCORE_PATH = Path(__file__).parent.parent / "WorldScore"
 sys.path.insert(0, str(WORLDSCORE_PATH))
 
-# third_party/__init__.py uses relative paths (./worldscore/...) that only work
-# when CWD=WorldScore root. Fix by injecting absolute paths before any imports.
-_THIRD_PARTY = WORLDSCORE_PATH / "worldscore" / "benchmark" / "metrics" / "third_party"
-for _subdir in ["droid_slam", "groundingdino", "sam2", "VFIMamba", "SEA-RAFT"]:
-    _p = str(_THIRD_PARTY / _subdir)
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
+# Inject third_party paths before worldscore imports.
+# Handles both: (a) local WorldScore repo, (b) pip-installed worldscore package.
+def _inject_third_party_paths():
+    import importlib.util
+    subdirs = ["droid_slam", "groundingdino", "sam2", "VFIMamba", "SEA-RAFT"]
+
+    # Try pip-installed worldscore location first
+    spec = importlib.util.find_spec("worldscore")
+    if spec and spec.origin:
+        ws_pkg = Path(spec.origin).parent
+        third_party = ws_pkg / "benchmark" / "metrics" / "third_party"
+        if third_party.exists():
+            for sub in subdirs:
+                p = str(third_party / sub)
+                if p not in sys.path:
+                    sys.path.insert(0, p)
+            return
+
+    # Fallback: local repo
+    third_party = WORLDSCORE_PATH / "worldscore" / "benchmark" / "metrics" / "third_party"
+    for sub in subdirs:
+        p = str(third_party / sub)
+        if p not in sys.path:
+            sys.path.insert(0, p)
+
+_inject_third_party_paths()
 
 # Import only what we need, avoid lietorch dependencies
 from worldscore.benchmark.metrics.base_metrics import IQAPytorchMetric, BaseMetric
