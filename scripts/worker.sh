@@ -50,7 +50,7 @@ python scripts/compute_metrics_model.py \
     --json       "${JSON_PATH}" \
     --video-dir  "${VIDEO_DIR}" \
     --model      "${MODEL}" \
-    --output     "${LOG_DIR}/${MODEL_SLUG}_shard${SHARD}.json" \
+    --output     "${HARVEST_DIR}/${MODEL_SLUG}_shard${SHARD}.json" \
     --shard      "${SHARD}" \
     --num-shards "${NUM_SHARDS}"
 
