@@ -15,6 +15,14 @@ import torch.nn.functional as F
 WORLDSCORE_PATH = Path(__file__).parent.parent / "WorldScore"
 sys.path.insert(0, str(WORLDSCORE_PATH))
 
+# third_party/__init__.py uses relative paths (./worldscore/...) that only work
+# when CWD=WorldScore root. Fix by injecting absolute paths before any imports.
+_THIRD_PARTY = WORLDSCORE_PATH / "worldscore" / "benchmark" / "metrics" / "third_party"
+for _subdir in ["droid_slam", "groundingdino", "sam2", "VFIMamba", "SEA-RAFT"]:
+    _p = str(_THIRD_PARTY / _subdir)
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
 # Import only what we need, avoid lietorch dependencies
 from worldscore.benchmark.metrics.base_metrics import IQAPytorchMetric, BaseMetric
 from worldscore.common.gpu_utils import get_torch_device
