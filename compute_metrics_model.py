@@ -168,7 +168,7 @@ def main():
     parser.add_argument("--video-dir",  type=str, required=True,  help="Directory containing videos")
     parser.add_argument("--model",      type=str, required=True,  help='Model name e.g. "Sora 2", "Kling 2.5"')
     parser.add_argument("--output",     type=str, default=None,   help="Output JSON (default: <model>_metrics.json)")
-    parser.add_argument("--frame-skip", type=int, default=2,      help="Frame skip factor (default: 2)")
+    parser.add_argument("--frame-skip", type=int, default=1,      help="Frame skip factor (default: 1 = all frames)")
     parser.add_argument("--max-frames", type=int, default=None,   help="Max frames per video")
     parser.add_argument("--max-videos", type=int, default=None,   help="Max videos to process")
 
