@@ -1,55 +1,43 @@
 #!/bin/bash
-# Launch a single-GPU job for one model.
-# Usage: sbatch scripts/launch.sh "Sora 2"
-# For multi-GPU array: sbatch --array=0-9 scripts/run_slurm.sh "Sora 2" 10
-
-#SBATCH --job-name=physion_metrics
-#SBATCH --output=/tmp/physion_metrics_slurm_%j.out
-#SBATCH --error=/tmp/physion_metrics_slurm_%j.err
-#SBATCH --ntasks=1
-#SBATCH --cpus-per-task=8
-#SBATCH --mem=40G
-#SBATCH --gres=gpu:1
-#SBATCH --time=24:00:00
-#SBATCH --partition=gpu
-#SBATCH --account=carney-tserre-condo
+# Launcher — config lives in config.yaml at repo root.
+# Usage:
+#   bash scripts/launch.sh "Sora 2"        # single job, all videos
+#   bash scripts/launch.sh "Sora 2" 10     # job array, 10 shards (10 GPUs)
 
 MODEL="${1:-Sora 2}"
+NUM_SHARDS="${2:-1}"
+
+# ── Read config.yaml ──────────────────────────────────────────────────────────
+CFG="$(dirname "$0")/../config.yaml"
+cfg() { grep "^  $1:" "${CFG}" | awk '{print $2}'; }
+
+PHYSION_METRICS_DIR=$(cfg physion_metrics_dir)
+VIDEO_DIR=$(cfg video_dir)
+JSON_PATH=$(cfg json_path)
+WORLDSCORE_ROOT=$(cfg worldscore_root)
+# ─────────────────────────────────────────────────────────────────────────────
+
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 MODEL_SLUG="${MODEL// /_}"
-RUN_NAME="${MODEL_SLUG}_${TIMESTAMP}"
-
-# Paths
-PHYSION_METRICS_DIR="/oscar/data/tserre/arock3/physion_worldscore/physion-metrics"
-VIDEO_DIR="/path/to/physion/videos"
-JSON_PATH="/path/to/Physion_Eval_20260322.json"
-WORLDSCORE_ROOT="/users/arock3/scratch/physion_worldscore/WorldScore"
-
-# Per-run log dir: logs/Sora_2_20260429_143022/
 LOG_DIR="${PHYSION_METRICS_DIR}/logs/${MODEL_SLUG}/${TIMESTAMP}"
+WORKER="${PHYSION_METRICS_DIR}/scripts/worker.sh"
+
 mkdir -p "${LOG_DIR}"
 
-# Move SLURM stdout/stderr into the run log dir
-exec > >(tee -a "${LOG_DIR}/slurm.out") 2> >(tee -a "${LOG_DIR}/slurm.err" >&2)
+echo "Model:   ${MODEL}"
+echo "Shards:  ${NUM_SHARDS}"
+echo "Logs  →  ${LOG_DIR}"
+echo ""
 
-source ~/.bashrc
-conda activate worldscore
-export WORLDSCORE_ROOT="${WORLDSCORE_ROOT}"
+EXPORTS="ALL,MODEL=${MODEL},NUM_SHARDS=${NUM_SHARDS},LOG_DIR=${LOG_DIR},PHYSION_METRICS_DIR=${PHYSION_METRICS_DIR},VIDEO_DIR=${VIDEO_DIR},JSON_PATH=${JSON_PATH},WORLDSCORE_ROOT=${WORLDSCORE_ROOT}"
 
-echo "=========================================="
-echo "Run:    ${RUN_NAME}"
-echo "Job:    ${SLURM_JOB_ID}"
-echo "Model:  ${MODEL}"
-echo "GPU:    $(nvidia-smi --query-gpu=name --format=csv,noheader | head -1)"
-echo "Log:    ${LOG_DIR}"
-echo "=========================================="
+if [ "${NUM_SHARDS}" -gt 1 ]; then
+    JOB=$(sbatch --array=0-$((NUM_SHARDS - 1)) --export="${EXPORTS}" "${WORKER}")
+else
+    JOB=$(sbatch --export="${EXPORTS}" "${WORKER}")
+fi
 
-cd "${PHYSION_METRICS_DIR}"
-
-python scripts/compute_metrics_model.py \
-    --json      "${JSON_PATH}" \
-    --video-dir "${VIDEO_DIR}" \
-    --model     "${MODEL}" \
-    --output    "${LOG_DIR}/${MODEL_SLUG}_metrics.json"
-
-echo "Done: exited with code $?"
+echo "Submitted: ${JOB}"
+echo ""
+echo "Merge when done:"
+echo "  python scripts/merge_results.py --pattern '${LOG_DIR}/*.json' --output '${LOG_DIR}/${MODEL_SLUG}_merged.json'"
