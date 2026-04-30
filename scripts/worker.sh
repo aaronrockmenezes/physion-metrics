@@ -6,10 +6,10 @@
 #SBATCH --output=/tmp/physion_%A_%a.out
 #SBATCH --error=/tmp/physion_%A_%a.err
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=8
+#SBATCH --cpus-per-task=12
 #SBATCH --mem=40G
 #SBATCH --gres=gpu:1
-#SBATCH --time=06:00:00
+#SBATCH --time=08:00:00
 #SBATCH --partition=gpu
 #SBATCH --account=carney-tserre-condo
 #SBATCH --constraint="l40s|a6000"
