@@ -16,6 +16,23 @@ conda activate "${CONDA_ENV}"
 
 exec > >(tee -a "${LOG_DIR}/merge.out") 2> >(tee -a "${LOG_DIR}/merge.err" >&2)
 
+RUN_DIR="$(dirname "${LOG_DIR}")"
+STATUS_LOG="${RUN_DIR}/run_status.log"
+LOCK_FILE="${RUN_DIR}/.status.lock"
+
+log_status() {
+    local level="$1"
+    local msg="$2"
+    (
+        flock -x 200
+        printf "[%s] [%-5s] MERGE %s\n" \
+            "$(date '+%Y-%m-%d %H:%M:%S')" "${level}" "${msg}" \
+            >> "${STATUS_LOG}"
+    ) 200>"${LOCK_FILE}"
+}
+
+log_status "START" "job ${SLURM_JOB_ID} on $(hostname) — $(date +%H:%M:%S)"
+
 echo "=========================================="
 echo "Merge job: ${SLURM_JOB_ID}"
 echo "Harvest:   ${HARVEST_DIR}"
@@ -24,8 +41,38 @@ echo "=========================================="
 
 cd "${PHYSION_METRICS_DIR}"
 
+# ── Check for missing shard JSONs ─────────────────────────────────────────────
+echo ""
+echo "Checking shard completeness..."
+MISSING=()
+for i in $(seq 0 $(( NUM_SHARDS - 1 )) ); do
+    SHARD_FILE="${HARVEST_DIR}/${MODEL_SLUG}_shard${i}.json"
+    if [ ! -f "${SHARD_FILE}" ]; then
+        MISSING+=("${i}")
+        log_status "WARN" "missing shard ${i} — no JSON at ${SHARD_FILE}"
+        echo "  [MISSING] shard ${i}"
+    fi
+done
+
+if [ ${#MISSING[@]} -eq 0 ]; then
+    echo "  All ${NUM_SHARDS} shards present."
+    log_status "INFO" "all ${NUM_SHARDS} shards present"
+else
+    echo "  ${#MISSING[@]} missing shard(s): ${MISSING[*]}"
+    log_status "WARN" "${#MISSING[@]} shard(s) missing: ${MISSING[*]}"
+fi
+
+# ── Merge ─────────────────────────────────────────────────────────────────────
+echo ""
 python scripts/merge_results.py \
     --pattern "${HARVEST_DIR}/${MODEL_SLUG}_shard*.json" \
     --output  "${MERGED_OUTPUT}"
 
-echo "Done: merge exited with code $?"
+CODE=$?
+if [ $CODE -eq 0 ]; then
+    log_status "OK" "merged → ${MERGED_OUTPUT} — $(date +%H:%M:%S)"
+else
+    log_status "FAIL" "merge exit code ${CODE}"
+fi
+
+echo "Done: merge exited with code ${CODE}"

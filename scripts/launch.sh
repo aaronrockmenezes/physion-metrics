@@ -50,7 +50,7 @@ echo "Submitted: ${JOB}"
 JOB_ID=$(echo "${JOB}" | awk '{print $NF}')
 
 # ── Queue merge — fires after all shards finish (any exit code) ───────────────
-MERGE_EXPORTS="ALL,HARVEST_DIR=${HARVEST_DIR},MERGED_OUTPUT=${MERGED_OUTPUT},MODEL_SLUG=${MODEL_SLUG},PHYSION_METRICS_DIR=${PHYSION_METRICS_DIR},CONDA_ENV=${CONDA_ENV},LOG_DIR=${LOG_DIR}"
+MERGE_EXPORTS="ALL,HARVEST_DIR=${HARVEST_DIR},MERGED_OUTPUT=${MERGED_OUTPUT},MODEL_SLUG=${MODEL_SLUG},NUM_SHARDS=${NUM_SHARDS},PHYSION_METRICS_DIR=${PHYSION_METRICS_DIR},CONDA_ENV=${CONDA_ENV},LOG_DIR=${LOG_DIR}"
 
 MERGE_JOB=$(sbatch \
     --dependency=afterany:${JOB_ID} \
