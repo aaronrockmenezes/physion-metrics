@@ -63,50 +63,71 @@ def clear_cache():
         torch.cuda.empty_cache()
 
 
-def compute_all_metrics(frames):
+def load_metrics():
+    """Load all metric models once. Pass returned dict to compute_all_metrics()."""
+    metrics = {}
+    loaders = {
+        "clip_iqa":    CLIPIQAPlusMetric,
+        "clip_aes":    CLIPAestheticMetric,
+        "opt_flow":    OpticalFlowMetric,
+        "opt_flow_aepe": OpticalFlowAEPEMetric,
+        "style":       StyleConsistencyMetric,
+        "smoothness":  MotionSmoothnessMetric,
+    }
+    for key, cls in loaders.items():
+        try:
+            metrics[key] = cls()
+            print(f"  [loaded] {cls.__name__}")
+        except Exception as e:
+            print(f"  [failed] {cls.__name__}: {e}")
+            metrics[key] = None
+    return metrics
+
+
+def compute_all_metrics(frames, metrics: dict):
     results = {}
 
     try:
-        metric = CLIPIQAPlusMetric()
-        results["subjective_quality_image"] = float(metric.compute(frames))
+        if metrics["clip_iqa"]:
+            results["subjective_quality_image"] = float(metrics["clip_iqa"].compute(frames))
     except Exception as e:
         print(f"    CLIP-IQA+ error: {e}")
         results["subjective_quality_image"] = None
 
     try:
-        metric = CLIPAestheticMetric()
-        results["subjective_quality_aesthetic"] = float(metric.compute(frames))
+        if metrics["clip_aes"]:
+            results["subjective_quality_aesthetic"] = float(metrics["clip_aes"].compute(frames))
     except Exception as e:
         print(f"    CLIP Aesthetic error: {e}")
         results["subjective_quality_aesthetic"] = None
 
     try:
-        metric = OpticalFlowMetric()
-        results["motion_magnitude"] = float(metric.compute(frames))
+        if metrics["opt_flow"]:
+            results["motion_magnitude"] = float(metrics["opt_flow"].compute(frames))
     except Exception as e:
         print(f"    Motion Magnitude error: {e}")
         results["motion_magnitude"] = None
 
     try:
-        metric = OpticalFlowAEPEMetric()
-        results["photometric_consistency"] = float(metric.compute(frames))
+        if metrics["opt_flow_aepe"]:
+            results["photometric_consistency"] = float(metrics["opt_flow_aepe"].compute(frames))
     except Exception as e:
         print(f"    Photometric Consistency error: {e}")
         results["photometric_consistency"] = None
 
     try:
-        metric = StyleConsistencyMetric()
-        results["style_consistency"] = float(metric.compute(frames))
+        if metrics["style"]:
+            results["style_consistency"] = float(metrics["style"].compute(frames))
     except Exception as e:
         print(f"    Style Consistency error: {e}")
         results["style_consistency"] = None
 
     try:
-        metric = MotionSmoothnessMetric()
-        mse, ssim, lpips = metric.compute(frames)
-        results["motion_smoothness_mse"] = float(mse)
-        results["motion_smoothness_ssim"] = float(ssim)
-        results["motion_smoothness_lpips"] = float(lpips)
+        if metrics["smoothness"]:
+            mse, ssim, lpips = metrics["smoothness"].compute(frames)
+            results["motion_smoothness_mse"] = float(mse)
+            results["motion_smoothness_ssim"] = float(ssim)
+            results["motion_smoothness_lpips"] = float(lpips)
     except Exception as e:
         print(f"    Motion Smoothness error: {e}")
         results["motion_smoothness_mse"] = None
@@ -117,7 +138,7 @@ def compute_all_metrics(frames):
     return results
 
 
-def process_entry(entry: dict, video_dir: Path, frame_skip: int, max_frames: int | None):
+def process_entry(entry: dict, video_dir: Path, frame_skip: int, max_frames: int | None, metrics: dict):
     filename = entry["filename"]
     video_path = find_video(video_dir, filename)
 
@@ -135,7 +156,7 @@ def process_entry(entry: dict, video_dir: Path, frame_skip: int, max_frames: int
         print(f"  Error loading video: {e}")
         return None
 
-    raw_metrics = compute_all_metrics(frames)
+    raw_metrics = compute_all_metrics(frames, metrics)
     ws = compute_worldscore(raw_metrics)
 
     result = {
@@ -199,13 +220,16 @@ def main():
         entries = entries[start_idx:end_idx]
         print(f"Shard {args.shard}/{args.num_shards}: entries {start_idx}-{end_idx-1} ({len(entries)} videos)")
 
-    # Auto-suffix output with shard index when sharding
-    base_output = args.output or f"{args.model.replace(' ', '_')}_metrics"
-    if args.num_shards > 1:
-        stem = Path(base_output).stem if args.output else base_output
-        output_path = Path(f"{stem}_shard{args.shard:04d}.json")
+    # If --output given explicitly (e.g. from worker.sh), use it as-is.
+    # Otherwise auto-generate with shard suffix.
+    if args.output:
+        output_path = Path(args.output)
     else:
-        output_path = Path(base_output) if args.output else Path(f"{base_output}.json")
+        base = f"{args.model.replace(' ', '_')}_metrics"
+        if args.num_shards > 1:
+            output_path = Path(f"{base}_shard{args.shard:04d}.json")
+        else:
+            output_path = Path(f"{base}.json")
     video_dir = Path(args.video_dir)
 
     device = get_device()
@@ -219,6 +243,11 @@ def main():
     print(f"Output: {output_path}")
     print("=" * 80)
 
+    # Load all models once — reused across every video in this shard
+    print("\nLoading metric models...")
+    metrics = load_metrics()
+    print()
+
     results = []
     start_total = time.time()
     not_found = 0
@@ -226,7 +255,7 @@ def main():
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     for entry in tqdm(entries, desc=f"{args.model}"):
-        result = process_entry(entry, video_dir, args.frame_skip, args.max_frames)
+        result = process_entry(entry, video_dir, args.frame_skip, args.max_frames, metrics)
         if result:
             results.append(result)
             # Incremental save — crash-safe: write after each video
