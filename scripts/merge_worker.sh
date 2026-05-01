@@ -73,14 +73,17 @@ if [ $CODE -eq 0 ]; then
     log_status "OK" "merged → ${MERGED_OUTPUT} — $(date +%H:%M:%S)"
 
     # ── Summary ───────────────────────────────────────────────────────────────
-    SUMMARY_OUTPUT="${MERGED_OUTPUT%.json}_summary.txt"
+    SUMMARY_TXT="${MERGED_OUTPUT%.json}_summary.txt"
+    SUMMARY_JSON="${MERGED_OUTPUT%.json}_summary.json"
     echo ""
     echo "Running summary..."
     python scripts/summarize_results.py \
-        --input  "${MERGED_OUTPUT}" \
-        --output "${SUMMARY_OUTPUT}"
-    echo "Summary → ${SUMMARY_OUTPUT}"
-    log_status "OK" "summary → ${SUMMARY_OUTPUT}"
+        --input       "${MERGED_OUTPUT}" \
+        --output      "${SUMMARY_TXT}" \
+        --output-json "${SUMMARY_JSON}"
+    echo "Summary txt  → ${SUMMARY_TXT}"
+    echo "Summary json → ${SUMMARY_JSON}"
+    log_status "OK" "summary → ${SUMMARY_TXT} + ${SUMMARY_JSON}"
 else
     log_status "FAIL" "merge exit code ${CODE}"
 fi
