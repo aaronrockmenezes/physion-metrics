@@ -8,8 +8,8 @@ paths:
   worldscore_root:     /users/arock3/scratch/physion_worldscore/WorldScore
 
 slurm:
-  cpus_per_task: 12
-  mem:           40G
+  cpus_per_task: 4
+  mem:           20G
   time:          08:00:00
   partition:     gpu
   account:       carney-tserre-condo
