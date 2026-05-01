@@ -97,6 +97,16 @@ def test_video(video_path: str, frame_skip: int = 1, max_frames: int = None):
     except Exception as e:
         print(f"[✗] Motion Smoothness      {e}")
 
+    # --- 3D Consistency ---
+    try:
+        t0 = time.time()
+        from physion_metrics.metrics_wrapper import ThreeDConsistencyMetric
+        score = ThreeDConsistencyMetric().compute(frames)
+        results["3d_consistency"] = score
+        print(f"[✓] 3D Consistency         {score:.4f}  ({time.time()-t0:.1f}s)")
+    except Exception as e:
+        print(f"[✗] 3D Consistency         {e}")
+
     # --- WorldScore ---
     print()
     print("=" * 60)
