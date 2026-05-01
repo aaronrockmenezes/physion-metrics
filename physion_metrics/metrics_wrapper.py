@@ -174,6 +174,24 @@ class StyleConsistencyMetric:
         return float(self._metric._compute_scores(frame_paths[0], frame_paths[1:]))
 
 
+class ThreeDConsistencyMetric:
+    """3D Consistency - DROID-SLAM reprojection error. CUDA only."""
+
+    def __init__(self):
+        if not torch.cuda.is_available():
+            raise RuntimeError("ThreeDConsistencyMetric requires CUDA — not available on this device.")
+        with _worldscore_cwd():
+            from worldscore.benchmark.metrics.third_party.reprojection_error_metrics import (
+                ReprojectionErrorMetric as _WS,
+            )
+            self._metric = _WS()
+
+    def compute(self, frames: List[Image.Image]) -> float:
+        frame_paths = frames_to_file_paths(frames, temp_dir="/tmp/physion_3d_consistency")
+        with _worldscore_cwd():
+            return float(self._metric._compute_scores(frame_paths))
+
+
 class MotionSmoothnessMetric:
     """Motion Smoothness - VFIMamba (MSE, SSIM, LPIPS)."""
 

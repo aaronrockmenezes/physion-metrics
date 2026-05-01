@@ -23,6 +23,10 @@ METRIC_INFO = {
         "range": [0.25, 0.75], "higher_is_better": True,
     },
     # Empirical single-value metrics
+    "reprojection_error": {
+        "empirical_max": 1.0719, "empirical_min": 0,
+        "higher_is_better": False,
+    },
     "optical_flow_aepe": {
         "empirical_max": 1.1920, "empirical_min": 0,
         "higher_is_better": False,
@@ -42,6 +46,7 @@ METRIC_INFO = {
 # Which aspect each metric belongs to, and static vs dynamic
 WORLDSCORE_LAYOUT = {
     "static": {
+        "3d_consistency":          "reprojection_error",
         "photometric_consistency": "optical_flow_aepe",
         "style_consistency":       "gram_matrix",
         "subjective_quality":      ["clip_iqa+", "clip_aesthetic"],
@@ -105,6 +110,12 @@ def compute_worldscore(result: dict) -> dict:
 
     # --- Static aspects (normalized 0-1, then * 100 per paper run_evaluate.py:55) ---
 
+    # 3D Consistency: DROID-SLAM reprojection error
+    if result.get("3d_consistency") is not None:
+        scores["3d_consistency"] = round(
+            normalize_metric("reprojection_error", result["3d_consistency"]) * 100, 2
+        )
+
     # Subjective Quality: mean of CLIP-IQA+ and CLIP Aesthetic, scaled to 0-100
     sq_scores = []
     if result.get("subjective_quality_image") is not None:
@@ -144,7 +155,7 @@ def compute_worldscore(result: dict) -> dict:
         )
 
     # --- Aggregate (aspect scores already 0-100, WorldScore = mean of aspects) ---
-    static_keys  = ["subjective_quality", "photometric_consistency", "style_consistency"]
+    static_keys  = ["3d_consistency", "subjective_quality", "photometric_consistency", "style_consistency"]
     dynamic_keys = ["motion_magnitude", "motion_smoothness"]
 
     static_vals  = [scores[k] for k in static_keys  if k in scores]

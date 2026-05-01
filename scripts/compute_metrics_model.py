@@ -32,6 +32,7 @@ from physion_metrics.metrics_wrapper import (
     OpticalFlowAEPEMetric,
     MotionSmoothnessMetric,
     StyleConsistencyMetric,
+    ThreeDConsistencyMetric,
 )
 from physion_metrics.score_utils import compute_worldscore
 
@@ -73,6 +74,7 @@ def load_metrics():
         "opt_flow_aepe": OpticalFlowAEPEMetric,
         "style":       StyleConsistencyMetric,
         "smoothness":  MotionSmoothnessMetric,
+        "3d":          ThreeDConsistencyMetric,
     }
     for key, cls in loaders.items():
         try:
@@ -86,6 +88,13 @@ def load_metrics():
 
 def compute_all_metrics(frames, metrics: dict):
     results = {}
+
+    try:
+        if metrics["3d"]:
+            results["3d_consistency"] = float(metrics["3d"].compute(frames))
+    except Exception as e:
+        print(f"    3D Consistency error: {e}")
+        results["3d_consistency"] = None
 
     try:
         if metrics["clip_iqa"]:
@@ -283,6 +292,7 @@ def main():
         if vals:
             print(f"{key:<40} mean={np.mean(vals):.4f}, std={np.std(vals):.4f}, n={len(vals)}")
 
+    mean_std("3d_consistency")
     mean_std("subjective_quality_image")
     mean_std("subjective_quality_aesthetic")
     mean_std("motion_magnitude")

@@ -69,7 +69,7 @@ def summarize(data: list, out):
 
         # ── per-metric (normalized) ───────────────────────────────────────────
         p("\n── Normalized aspects (0–100) ──────────────────────────────────────")
-        for key in ["subjective_quality", "photometric_consistency",
+        for key in ["3d_consistency", "subjective_quality", "photometric_consistency",
                     "style_consistency", "motion_magnitude", "motion_smoothness"]:
             s = stat(entries, key)
             p(f"  {key:<25}{fmt_stat(s)}")
