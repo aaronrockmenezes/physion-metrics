@@ -25,10 +25,11 @@ RUN_DIR="$(dirname "${LOG_DIR}")"
 STATUS_LOG="${RUN_DIR}/run_status.log"
 LOCK_FILE="${RUN_DIR}/.status.lock"
 RETRY_DIR="${RUN_DIR}/.retries"
-NODE_LOG="${LOG_DIR}/node${NODE_IDX}.out"
-NODE_ERR="${LOG_DIR}/node${NODE_IDX}.err"
+NODE_LOG="${LOG_DIR}/nodes/node${NODE_IDX}.out"
+NODE_ERR="${LOG_DIR}/nodes/node${NODE_IDX}.err"
+SHARD_LOG_DIR="${LOG_DIR}/shards"
 
-mkdir -p "${LOG_DIR}" "${RETRY_DIR}"
+mkdir -p "${LOG_DIR}/nodes" "${SHARD_LOG_DIR}" "${RETRY_DIR}"
 
 # Node-level messages go to node log only (shard logs are separate)
 nlog() { echo "$@" | tee -a "${NODE_LOG}"; }
@@ -109,8 +110,8 @@ for GPU_ID in $(seq 0 $((GPUS_PER_NODE - 1))); do
             --output     "${HARVEST_DIR}/${MODEL_SLUG}_shard${SHARD}.json" \
             --shard      "${SHARD}" \
             --num-shards "${NUM_SHARDS}" \
-            >> "${LOG_DIR}/shard${SHARD}.out" \
-            2>> "${LOG_DIR}/shard${SHARD}.err"
+            >> "${SHARD_LOG_DIR}/shard${SHARD}.out" \
+            2>> "${SHARD_LOG_DIR}/shard${SHARD}.err"
 
         CODE=$?
         ATTEMPT_VAL=$(cat "${RETRY_DIR}/shard${SHARD}" 2>/dev/null || echo 1)

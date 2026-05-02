@@ -27,7 +27,9 @@ physion-metrics/
 │   └── test_single_video.py         # Runs all 6 metrics on one video, prints results
 └── logs/                            # Created at runtime
     └── <Model>/<timestamp>/
-        ├── logs/                    # shard0.out, shard0.err, ..., merge.out
+        ├── logs/
+        │   ├── nodes/               # node0.out/err, ... (GPU assignments, wait/done)
+        │   └── shards/              # shard0.out/err, ... (Python per-shard output)
         ├── harvest/                 # Sora_2_shard0000.json, ... (incremental writes)
         ├── merged_<Model>.json      # Final merged results
         ├── merged_<Model>_summary.txt
