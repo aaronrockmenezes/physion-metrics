@@ -137,7 +137,8 @@ class OpticalFlowMetric:
             self._metric = _WS()
 
     def compute(self, frames: List[Image.Image]) -> float:
-        frame_paths = frames_to_file_paths(frames, temp_dir="/tmp/physion_optical_flow")
+        gpu = os.environ.get("CUDA_VISIBLE_DEVICES", "0")
+        frame_paths = frames_to_file_paths(frames, temp_dir=f"/tmp/physion_optical_flow_{gpu}")
         with _worldscore_cwd():
             return float(self._metric._compute_scores(frame_paths))
 
@@ -153,7 +154,8 @@ class OpticalFlowAEPEMetric:
             self._metric = _WS()
 
     def compute(self, frames: List[Image.Image]) -> float:
-        frame_paths = frames_to_file_paths(frames, temp_dir="/tmp/physion_optical_flow_aepe")
+        gpu = os.environ.get("CUDA_VISIBLE_DEVICES", "0")
+        frame_paths = frames_to_file_paths(frames, temp_dir=f"/tmp/physion_optical_flow_aepe_{gpu}")
         with _worldscore_cwd():
             return float(self._metric._compute_scores(frame_paths))
 
@@ -170,7 +172,8 @@ class StyleConsistencyMetric:
     def compute(self, frames: List[Image.Image]) -> float:
         if len(frames) < 2:
             return 0.0
-        frame_paths = frames_to_file_paths(frames, temp_dir="/tmp/physion_style_consistency")
+        gpu = os.environ.get("CUDA_VISIBLE_DEVICES", "0")
+        frame_paths = frames_to_file_paths(frames, temp_dir=f"/tmp/physion_style_consistency_{gpu}")
         return float(self._metric._compute_scores(frame_paths[0], frame_paths[1:]))
 
 
@@ -187,7 +190,8 @@ class ThreeDConsistencyMetric:
             self._metric = _WS()
 
     def compute(self, frames: List[Image.Image]) -> float:
-        frame_paths = frames_to_file_paths(frames, temp_dir="/tmp/physion_3d_consistency")
+        gpu = os.environ.get("CUDA_VISIBLE_DEVICES", "0")
+        frame_paths = frames_to_file_paths(frames, temp_dir=f"/tmp/physion_3d_consistency_{gpu}")
         with _worldscore_cwd():
             return float(self._metric._compute_scores(frame_paths))
 
@@ -203,7 +207,8 @@ class MotionSmoothnessMetric:
             self._metric = _WS()
 
     def compute(self, frames: List[Image.Image]) -> Tuple[float, float, float]:
-        frame_paths = frames_to_file_paths(frames, temp_dir="/tmp/physion_motion_smoothness")
+        gpu = os.environ.get("CUDA_VISIBLE_DEVICES", "0")
+        frame_paths = frames_to_file_paths(frames, temp_dir=f"/tmp/physion_motion_smoothness_{gpu}")
         with _worldscore_cwd():
             mse, ssim, lpips = self._metric._compute_scores(frame_paths)
         return float(mse), float(ssim), float(lpips)

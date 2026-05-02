@@ -13,7 +13,7 @@
 #SBATCH --time=08:00:00
 #SBATCH --partition=gpu
 #SBATCH --account=carney-tserre-condo
-#SBATCH --constraint="l40s|a6000"
+#SBATCH --constraint=l40s|a6000
 #SBATCH --requeue
 
 # Note: resource #SBATCH directives above are overridden by launch.sh args.
@@ -25,10 +25,14 @@ RUN_DIR="$(dirname "${LOG_DIR}")"
 STATUS_LOG="${RUN_DIR}/run_status.log"
 LOCK_FILE="${RUN_DIR}/.status.lock"
 RETRY_DIR="${RUN_DIR}/.retries"
+NODE_LOG="${LOG_DIR}/node${NODE_IDX}.out"
+NODE_ERR="${LOG_DIR}/node${NODE_IDX}.err"
 
 mkdir -p "${LOG_DIR}" "${RETRY_DIR}"
 
-exec > >(tee -a "${LOG_DIR}/node${NODE_IDX}.out") 2> >(tee -a "${LOG_DIR}/node${NODE_IDX}.err" >&2)
+# Node-level messages go to node log only (shard logs are separate)
+nlog() { echo "$@" | tee -a "${NODE_LOG}"; }
+nerr() { echo "$@" | tee -a "${NODE_ERR}" >&2; }
 
 # Load CUDA module
 module load cuda 2>/dev/null || true
@@ -43,14 +47,14 @@ export WORLDSCORE_ROOT="${WORLDSCORE_ROOT}"
 
 CPUS_PER_GPU=$(( SLURM_CPUS_PER_TASK / GPUS_PER_NODE ))
 
-echo "=========================================="
-echo "Node job: ${SLURM_JOB_ID}_${NODE_IDX}"
-echo "Model:    ${MODEL}"
-echo "GPUs:     ${GPUS_PER_NODE}  (${CPUS_PER_GPU} CPUs each)"
-echo "Host:     $(hostname)"
-echo "=========================================="
-nvidia-smi --query-gpu=index,name,memory.total --format=csv,noheader
-echo "=========================================="
+nlog "=========================================="
+nlog "Node job: ${SLURM_JOB_ID}_${NODE_IDX}"
+nlog "Model:    ${MODEL}"
+nlog "GPUs:     ${GPUS_PER_NODE}  (${CPUS_PER_GPU} CPUs each)"
+nlog "Host:     $(hostname)"
+nlog "=========================================="
+nvidia-smi --query-gpu=index,name,memory.total --format=csv,noheader >> "${NODE_LOG}"
+nlog "=========================================="
 
 # ── Central status log helper (flock) ────────────────────────────────────────
 log_status() {
@@ -71,7 +75,7 @@ for GPU_ID in $(seq 0 $((GPUS_PER_NODE - 1))); do
 
     # Skip if shard index exceeds total shards
     if [ "${SHARD}" -ge "${NUM_SHARDS}" ]; then
-        echo "GPU ${GPU_ID}: no shard (shard ${SHARD} >= ${NUM_SHARDS}), skipping."
+        nlog "GPU ${GPU_ID}: no shard (shard ${SHARD} >= ${NUM_SHARDS}), skipping."
         continue
     fi
 
@@ -88,7 +92,7 @@ for GPU_ID in $(seq 0 $((GPUS_PER_NODE - 1))); do
     [ "${ATTEMPT}" -gt 1 ] && SUFFIX=" ← RETRY (attempt ${ATTEMPT})"
     log_status "${SHARD}" "START" "node ${SLURM_JOB_ID}_${NODE_IDX} GPU${GPU_ID} on $(hostname)" "${SUFFIX}"
 
-    # Launch subprocess
+    # Launch subprocess — stdout/stderr go only to shard logs (not node log)
     (
         export CUDA_VISIBLE_DEVICES="${GPU_ID}"
         export OMP_NUM_THREADS="${CPUS_PER_GPU}"
@@ -105,8 +109,8 @@ for GPU_ID in $(seq 0 $((GPUS_PER_NODE - 1))); do
             --output     "${HARVEST_DIR}/${MODEL_SLUG}_shard${SHARD}.json" \
             --shard      "${SHARD}" \
             --num-shards "${NUM_SHARDS}" \
-            > >(tee -a "${LOG_DIR}/shard${SHARD}.out") \
-            2> >(tee -a "${LOG_DIR}/shard${SHARD}.err" >&2)
+            >> "${LOG_DIR}/shard${SHARD}.out" \
+            2>> "${LOG_DIR}/shard${SHARD}.err"
 
         CODE=$?
         ATTEMPT_VAL=$(cat "${RETRY_DIR}/shard${SHARD}" 2>/dev/null || echo 1)
@@ -121,9 +125,9 @@ for GPU_ID in $(seq 0 $((GPUS_PER_NODE - 1))); do
     ) &
 
     PIDS+=($!)
-    echo "GPU ${GPU_ID} → shard ${SHARD} (PID $!)"
+    nlog "GPU ${GPU_ID} → shard ${SHARD} (PID $!)"
 done
 
-echo "Waiting for ${#PIDS[@]} GPU processes..."
+nlog "Waiting for ${#PIDS[@]} GPU processes..."
 wait "${PIDS[@]}"
-echo "Node ${NODE_IDX} done."
+nlog "Node ${NODE_IDX} done."
