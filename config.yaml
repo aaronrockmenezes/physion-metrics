@@ -14,5 +14,5 @@ slurm:
   time:           08:00:00
   partition:      gpu
   account:        carney-tserre-condo
-  constraint:     "l40s|a6000"
+  constraint:     l40s|a6000
   conda_env:      worldscore
