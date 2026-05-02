@@ -6,8 +6,8 @@
 #SBATCH --output=/tmp/physion_%A_%a.out
 #SBATCH --error=/tmp/physion_%A_%a.err
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=4
-#SBATCH --mem=20G
+#SBATCH --cpus-per-task=12
+#SBATCH --mem=40G
 #SBATCH --gres=gpu:1
 #SBATCH --time=08:00:00
 #SBATCH --partition=gpu
