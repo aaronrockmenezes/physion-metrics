@@ -11,7 +11,7 @@ slurm:
   gpus_per_node:  4        # GPUs requested per node; one shard subprocess per GPU
   cpus_per_task:  16       # Total CPUs per node (gpus_per_node × 4 recommended)
   mem:            80G      # Total RAM per node (~20G per GPU subprocess)
-  time:           08:00:00
+  time:           02:00:00
   partition:      gpu
   account:        carney-tserre-condo
   constraint:     "l40s|a6000"
