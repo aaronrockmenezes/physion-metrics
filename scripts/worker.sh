@@ -38,10 +38,15 @@ nerr() { echo "$@" | tee -a "${NODE_ERR}" >&2; }
 # Load CUDA module
 module load cuda 2>/dev/null || true
 
-# Activate conda env
+# Activate conda env (robust for non-interactive SLURM shells)
+# source ~/.bashrc skips conda init due to PS1 guard; source init script directly instead.
 CFG="${PHYSION_METRICS_DIR}/config.yaml"
 CONDA_ENV=$(grep "^  conda_env:" "${CFG}" | awk '{print $2}')
-source ~/.bashrc
+source ~/.bashrc 2>/dev/null || true
+CONDA_BASE="$(conda info --base 2>/dev/null)"
+if [ -n "${CONDA_BASE}" ] && [ -f "${CONDA_BASE}/etc/profile.d/conda.sh" ]; then
+    source "${CONDA_BASE}/etc/profile.d/conda.sh"
+fi
 conda activate "${CONDA_ENV}"
 
 export WORLDSCORE_ROOT="${WORLDSCORE_ROOT}"
