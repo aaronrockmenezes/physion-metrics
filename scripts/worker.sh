@@ -43,6 +43,7 @@ CFG="${PHYSION_METRICS_DIR}/config.yaml"
 CONDA_ENV=$(grep "^  conda_env:" "${CFG}" | awk '{print $2}')
 source ~/.bashrc
 conda activate "${CONDA_ENV}"
+export LD_LIBRARY_PATH="${CONDA_PREFIX}/lib:${LD_LIBRARY_PATH:-}"
 
 export WORLDSCORE_ROOT="${WORLDSCORE_ROOT}"
 
