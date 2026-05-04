@@ -16,3 +16,4 @@ slurm:
   account:        carney-tserre-condo
   constraint:     l40s|a6000
   conda_env:      worldscore
+  conda_base:     /users/arock3/scratch/conda
