@@ -12,8 +12,8 @@ slurm:
   cpus_per_task:  16       # Total CPUs per node (gpus_per_node × 4 recommended)
   mem:            80G      # Total RAM per node (~20G per GPU subprocess)
   time:           08:00:00
-  partition:      gpu
-  account:        carney-tserre-condo
-  constraint:     l40s|a6000
+  partition:      gpu-he
+  account:        carney-tserre-condo2
+  constraint:     a6000|h100
   conda_env:      worldscore
   conda_base:     /users/arock3/scratch/conda
