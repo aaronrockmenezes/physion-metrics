@@ -12,7 +12,10 @@
 #SBATCH --partition=batch
 
 source ~/.bashrc
+CONDA_BASE=$(grep "^  conda_base:" "${PHYSION_METRICS_DIR}/config.yaml" | awk '{print $2}')
 conda activate "${CONDA_ENV}"
+export LD_LIBRARY_PATH="${CONDA_BASE}/envs/${CONDA_ENV}/lib:${LD_LIBRARY_PATH:-}"
+export PYTHONPATH="${WORLDSCORE_ROOT}:${PYTHONPATH:-}"
 
 exec > >(tee -a "${LOG_DIR}/merge.out") 2> >(tee -a "${LOG_DIR}/merge.err" >&2)
 

@@ -136,6 +136,16 @@ All in `$WORLDSCORE_ROOT/worldscore/benchmark/metrics/checkpoints/`:
 ```bash
 conda activate worldscore
 export WORLDSCORE_ROOT=/users/arock3/scratch/physion_worldscore/WorldScore
+export PYTHONPATH=/users/arock3/scratch/physion_worldscore/WorldScore:$PYTHONPATH
+export LD_LIBRARY_PATH=/users/arock3/scratch/conda/envs/worldscore/lib:$LD_LIBRARY_PATH
+export CUDA_VISIBLE_DEVICES=0
 ```
+
+### Oscar HPC Gotchas
+- `worldscore` pip package was uninstalled — use `PYTHONPATH` to load local repo
+- `conda activate` doesn't set `LD_LIBRARY_PATH` on compute nodes — set explicitly
+- `conda_base` in config.yaml must match actual conda install path (`/users/arock3/scratch/conda`)
+- Setting `LD_LIBRARY_PATH` globally in shell breaks `clear` (ncurses conflict) — worker.sh scopes it to subprocess only
+- Checkpoint downloads: `droid.pth` via `gdown 1PpqVt1H4maBa_GbPJp4NwxRsd9jk-elh`, `Tartan-C-T-TSKH-spring540x960-M.pth` via `gdown 1a0C5FTdhjM4rKrfXiGhec7eq2YM141lu`
 
 Key deps: `torch`, `torchvision`, `pyiqa`, `opencv-python`, `Pillow`, `tqdm`, `numpy`, `lietorch`, `torch_scatter`
