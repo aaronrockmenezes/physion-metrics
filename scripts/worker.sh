@@ -44,9 +44,8 @@ CONDA_ENV=$(grep "^  conda_env:" "${CFG}" | awk '{print $2}')
 source ~/.bashrc
 CONDA_BASE=$(grep "^  conda_base:" "${CFG}" | awk '{print $2}')
 conda activate "${CONDA_ENV}"
-# Hardcode lib path — CONDA_PREFIX unset on compute nodes when conda init skipped
-export LD_LIBRARY_PATH="${CONDA_BASE}/envs/${CONDA_ENV}/lib:${LD_LIBRARY_PATH:-}"
 
+CONDA_ENV_LIB="${CONDA_BASE}/envs/${CONDA_ENV}/lib"
 export WORLDSCORE_ROOT="${WORLDSCORE_ROOT}"
 
 CPUS_PER_GPU=$(( SLURM_CPUS_PER_TASK / GPUS_PER_NODE ))
@@ -103,6 +102,9 @@ for GPU_ID in $(seq 0 $((GPUS_PER_NODE - 1))); do
         export MKL_NUM_THREADS="${CPUS_PER_GPU}"
         export OPENBLAS_NUM_THREADS="${CPUS_PER_GPU}"
         export NUMEXPR_NUM_THREADS="${CPUS_PER_GPU}"
+        # Scope lib path to subprocess only — prevents system tools (clear, etc.) breaking
+        export LD_LIBRARY_PATH="${CONDA_ENV_LIB}:${LD_LIBRARY_PATH:-}"
+        export PYTHONPATH="${WORLDSCORE_ROOT}:${PYTHONPATH:-}"
 
         cd "${PHYSION_METRICS_DIR}"
 
